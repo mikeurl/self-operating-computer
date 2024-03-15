@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-#           SOC Installer Script v0.0.1
+#           SOC Installer Script v0.0.2
 #   GitHub: https://github.com/OthersideAI/self-operating-computer
 #   Issues: https://github.com/OthersideAI/self-operating-computer/issues
 #   Requires: bash, curl/wget, python3, pip, git
@@ -8,7 +8,7 @@
 #   Please open an issue if you notice any bugs.
 #
 #
-#   This script is create by centopw
+#   This script is created by centopw
 #
 #
 clear
@@ -78,7 +78,7 @@ install_packages() {
 
 # Function to run a script and log errors
 run_script() {
-    eval "$1" || { log_error "Error running $1."; exit 1; }
+    bash -c "$1" || { log_error "Error running $1."; exit 1; }
 }
 
 # Check the operating system
@@ -108,6 +108,12 @@ run_script "python3 -m venv venv"
 # Activate the virtual environment
 source venv/bin/activate || { log_error "Unable to activate the virtual environment."; exit 1; }
 
+# Check if the requirements.txt file exists
+if [ ! -f requirements.txt ]; then
+    log_error "requirements.txt not found. Please ensure the file exists in the current directory."
+    exit 1
+fi
+
 # Install project requirements
 run_script "pip install -r requirements.txt"
 
@@ -119,7 +125,14 @@ if [ -f .env ] && grep -q "OPENAI_API_KEY" .env; then
     echo "OpenAI API key found in .env file. Skipping prompt..."
 else
     # Prompt user for Open AI key
-    read -p "Enter your OpenAI API key: " openai_key
+    while true; do
+        read -p "Enter your OpenAI API key: " openai_key
+        if [[ $openai_key =~ ^sk-[a-zA-Z0-9]{48}$ ]]; then
+            break
+        else
+            echo "Invalid OpenAI API key format. Please enter a valid key."
+        fi
+    done
 
     # Set the API key as an environment variable
     export OPENAI_API_KEY="$openai_key"
@@ -131,6 +144,9 @@ else
     echo "OPENAI_API_KEY='$openai_key'" > .env
 fi
 
+# Get the absolute path of the script
+script_path=$(dirname "$(realpath "$0")")
+
 # Notify the user about the last step
 echo "Final Step: As a last step, the Terminal app will ask for permission for 'Screen Recording' and 'Accessibility' in the 'Security & Privacy' page of Mac's 'System Preferences.'"
 
@@ -140,16 +156,14 @@ if [ "$os" == "Darwin" ]; then
     echo "Attempting to open Security & Privacy settings..."
     open /System/Library/PreferencePanes/Security.prefPane
     read -p "Have you granted the necessary permissions in the Security & Privacy settings? (y/n): " confirm
-    if [ "$confirm" != "y" ]; then
-        echo "Please grant the necessary permissions and then rerun the script."
-        exit 1
-    fi
+    while [ "$confirm" != "y" ]; do
+        read -p "Please grant the necessary permissions and then press 'y' to continue: " confirm
+    done
 else
     echo "Not a macOS system, skipping..."
 fi
 
 # End of the script
 echo "Installation complete. Enjoy using the Self-Operating Computer Framework!"
-
-# Run the framework
-run_script "operate"
+echo "To start the framework, run the following command:"
+echo "cd $script_path && source venv/bin/activate && operate"
